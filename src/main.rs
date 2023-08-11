@@ -22,16 +22,22 @@ impl Ray {
 pub struct HitRecord {
     pub point: Vec3,
     pub normal: Vec3,
-    pub t: f32
+    pub t: f32,
+    pub front_face: bool,
 }
 impl HitRecord {
-    pub fn new(point: Vec3, normal: Vec3, t: f32) -> Self {
-        HitRecord { point, normal, t }
+    pub fn new(point: Vec3, normal: Vec3, t: f32, front_face: bool) -> Self {
+        HitRecord { point, normal, t, front_face}
     }
     pub fn from_hit(obj_center: Vec3, ray: &Ray, t: f32) -> Self {
         let point = ray.at(t);
-        let normal = (point - obj_center).normalize();
-        HitRecord::new(point, normal, t)
+        let mut normal = (point - obj_center).normalize(); // this is always outward normal
+        let mut front_face = true;
+        if normal.dot(ray.dir) > 0.0 {
+            normal *= -1.0; // if normal points in the same direction of normal, then invert normal
+            front_face = false;
+        }
+        HitRecord::new(point, normal, t, front_face)
     }
 }
 
