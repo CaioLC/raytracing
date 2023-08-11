@@ -19,36 +19,75 @@ impl Ray {
     }
 }
 
-fn hit_sphere(sphere_center: Vec3, sphere_radius: f32, ray: &Ray) -> f32 {
-    let oc = ray.orig - sphere_center;
-    let a = ray.dir.dot(ray.dir);
-    let b = 2.0 * ray.dir.dot(oc);
-    let c = oc.dot(oc) - sphere_radius.powi(2);
-    let discriminant = b.powi(2) - 4.0 * a * c;
-    if discriminant < 0.0 {
-        return -1.0;
+pub struct HitRecord {
+    pub point: Vec3,
+    pub normal: Vec3,
+    pub t: f32
+}
+impl HitRecord {
+    pub fn new(point: Vec3, normal: Vec3, t: f32) -> Self {
+        HitRecord { point, normal, t }
     }
-    return (-b - discriminant.sqrt()) / (2.0*a)
+    pub fn from_hit(obj_center: Vec3, ray: &Ray, t: f32) -> Self {
+        let point = ray.at(t);
+        let normal = (point - obj_center).normalize();
+        HitRecord::new(point, normal, t)
+    }
+}
+
+trait Hit {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
+}
+
+pub struct Sphere {
+    center: Vec3,
+    radius: f32,
+}
+impl Sphere {
+    fn new(center: Vec3, radius: f32) -> Self {
+        Sphere { center, radius }
+    }
+}
+impl Hit for Sphere {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        let oc = ray.orig - self.center;
+        let a = ray.dir.length_squared();
+        let half_b = ray.dir.dot(oc);
+        let c = oc.dot(oc) - self.radius.powi(2);
+    
+        let discriminant = half_b.powi(2) - a * c;
+        if discriminant < 0.0 {
+            return None;
+        }
+        let sqrtd = discriminant.sqrt();
+
+        // Find the nearest root that lies in the acceptable range
+        let mut root = (-half_b - sqrtd) / a;
+        if root <= t_min || root >= t_max {
+            root = (-half_b + sqrtd) / a;
+            if root <= t_min || root >= t_max {
+                return None;
+            }
+        };
+        let rec = HitRecord::from_hit(self.center, ray, root);
+        Some(rec)
+    }
 }
 
 pub fn ray_color(ray: &Ray) -> Vec3 {
-    let t = hit_sphere(
-        Vec3 {
-            x: 0.0,
-            y: 0.0,
-            z: -1.0,
-        },
-        0.5,
-        ray,
-    );
-    if t > 0.0 {
-        let normal = (ray.at(t) - Vec3::new(0.0, 0.0, -1.0)).normalize();
-        return 0.5*(normal + 1.0);
-    };
-    let unit_direction = ray.dir.normalize();
-    // dbg!(unit_direction);
-    let a = 0.5 * (unit_direction.y + 1.0);
-    Vec3::ONE.lerp(Vec3::new(0.5, 0.7, 1.0), a)
+    let sphere = Sphere::new(Vec3 { x: 0.0, y: 0.0, z: -1.0 }, 0.5);
+    match sphere.hit(ray, 0.0, f32::MAX) {
+        Some(rec) => {
+            0.5*(rec.normal + 1.0)
+        }
+        None => {
+            let unit_direction = ray.dir.normalize();
+            // dbg!(unit_direction);
+            let a = 0.5 * (unit_direction.y + 1.0);
+            Vec3::ONE.lerp(Vec3::new(0.5, 0.7, 1.0), a)
+        }
+    }
+
 }
 
 fn main() -> io::Result<()> {
