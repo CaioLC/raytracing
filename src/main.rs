@@ -1,28 +1,53 @@
-use std::io::{self, BufWriter};
-use std::io::prelude::*;
-use std::fs::File;
 use glam::Vec3;
+use std::fs::File;
+use std::io::prelude::*;
+use std::io::{self, BufWriter};
 
 const IMG_WIDTH: u32 = 1600;
 const RATIO: f32 = 16.0 / 9.0;
 
 pub struct Ray {
     orig: Vec3,
-    dir: Vec3
+    dir: Vec3,
 }
 impl Ray {
     pub fn new(orig: Vec3, dir: Vec3) -> Self {
         Ray { orig, dir }
     }
     pub fn at(&self, t: f32) -> Vec3 {
-        self.orig + t*self.dir
+        self.orig + t * self.dir
     }
 }
 
+fn hit_sphere(sphere_center: Vec3, sphere_radius: f32, ray: &Ray) -> f32 {
+    let oc = ray.orig - sphere_center;
+    let a = ray.dir.dot(ray.dir);
+    let b = 2.0 * ray.dir.dot(oc);
+    let c = oc.dot(oc) - sphere_radius.powi(2);
+    let discriminant = b.powi(2) - 4.0 * a * c;
+    if discriminant < 0.0 {
+        return -1.0;
+    }
+    return (-b - discriminant.sqrt()) / (2.0*a)
+}
+
 pub fn ray_color(ray: &Ray) -> Vec3 {
+    let t = hit_sphere(
+        Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: -1.0,
+        },
+        0.5,
+        ray,
+    );
+    if t > 0.0 {
+        let normal = (ray.at(t) - Vec3::new(0.0, 0.0, -1.0)).normalize();
+        return 0.5*(normal + 1.0);
+    };
     let unit_direction = ray.dir.normalize();
     // dbg!(unit_direction);
-    let a = 0.5*(unit_direction.y + 1.0);
+    let a = 0.5 * (unit_direction.y + 1.0);
     Vec3::ONE.lerp(Vec3::new(0.5, 0.7, 1.0), a)
 }
 
@@ -45,27 +70,28 @@ fn main() -> io::Result<()> {
     let pixel_delta_v = viewport_v / img_height as f32;
 
     // Calculate the location of the upper left pixel.
-    let viewport_upper_left = 
-        camera_center - Vec3::new(0.0, 0.0, focal_length) - viewport_u/2.0 - viewport_v/2.0;
+    let viewport_upper_left =
+        camera_center - Vec3::new(0.0, 0.0, focal_length) - viewport_u / 2.0 - viewport_v / 2.0;
     let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
     // dbg!(viewport_upper_left);
 
     // Open device
     let f = File::create("image.ppm")?;
     let mut writer = BufWriter::new(f);
-    write!(&mut writer, "P3\n{IMG_WIDTH} {img_height}\n255\n")?; 
+    write!(&mut writer, "P3\n{IMG_WIDTH} {img_height}\n255\n")?;
 
     // Render
     for j in 0..img_height {
         println!("Scanlines remaining: {:?}", (img_height - j));
         for i in 0..IMG_WIDTH {
-            let pixel_center = pixel00_loc + (i as f32 *pixel_delta_u) + (j as f32 * pixel_delta_v);
+            let pixel_center =
+                pixel00_loc + (i as f32 * pixel_delta_u) + (j as f32 * pixel_delta_v);
             let ray_dir = pixel_center - camera_center;
             let ray = Ray::new(camera_center, ray_dir);
             let color = ray_color(&ray);
             write_color(&mut writer, &color)?;
         }
-    };
+    }
     println!("Complete.");
     Ok(())
 }
