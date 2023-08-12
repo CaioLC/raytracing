@@ -1,7 +1,12 @@
+use camera::Camera;
 use glam::Vec3;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{self, BufWriter};
+
+mod camera;
+mod obj;
+use obj::Sphere;
 
 const IMG_WIDTH: u32 = 1600;
 const RATIO: f32 = 16.0 / 9.0;
@@ -19,6 +24,7 @@ impl Ray {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct HitRecord {
     pub point: Vec3,
     pub normal: Vec3,
@@ -46,119 +52,74 @@ impl HitRecord {
     }
 }
 
+pub struct Interval {
+    t_min: f32,
+    t_max: f32,
+}
+impl Interval {
+    pub const EMPTY: Self = Self {
+        t_min: f32::INFINITY,
+        t_max: f32::NEG_INFINITY,
+    };
+    pub const UNIVERSE: Self = Self {
+        t_min: f32::NEG_INFINITY,
+        t_max: f32::INFINITY,
+    };
+
+    pub fn contains(&self, t: f32) -> bool {
+        self.t_min <= t && t <= self.t_max
+    }
+    pub fn surrounds(&self, t: f32) -> bool {
+        self.t_min < t && t < self.t_max
+    }
+}
+impl Default for Interval {
+    fn default() -> Self {
+        Self {
+            t_min: f32::INFINITY,
+            t_max: f32::NEG_INFINITY,
+        } // default interval is empty.
+    }
+}
+
 trait Hit {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
-}
-
-pub struct Sphere {
-    center: Vec3,
-    radius: f32,
-}
-impl Sphere {
-    fn new(center: Vec3, radius: f32) -> Self {
-        Sphere { center, radius }
-    }
-}
-impl Hit for Sphere {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let oc = ray.orig - self.center;
-        let a = ray.dir.length_squared();
-        let half_b = ray.dir.dot(oc);
-        let c = oc.dot(oc) - self.radius.powi(2);
-
-        let discriminant = half_b.powi(2) - a * c;
-        if discriminant < 0.0 {
-            return None;
-        }
-        let sqrtd = discriminant.sqrt();
-
-        // Find the nearest root that lies in the acceptable range
-        let mut root = (-half_b - sqrtd) / a;
-        if root <= t_min || root >= t_max {
-            root = (-half_b + sqrtd) / a;
-            if root <= t_min || root >= t_max {
-                return None;
-            }
-        };
-        let rec = HitRecord::from_hit(self.center, ray, root);
-        Some(rec)
-    }
-}
-
-pub fn ray_color(ray: &Ray, world: &HitCollection) -> Vec3 {
-    match world.hit_any(ray, 0.0, f32::MAX) {
-        Some(rec) => 0.5 * (rec.normal + 1.0),
-        None => {
-            let unit_direction = ray.dir.normalize();
-            let a = 0.5 * (unit_direction.y + 1.0);
-            Vec3::ONE.lerp(Vec3::new(0.5, 0.7, 1.0), a)
-        }
-    }
+    fn hit(&self, ray: &Ray, interval: &Interval) -> Option<HitRecord>;
 }
 
 pub struct HitCollection(Vec<Box<dyn Hit>>);
 impl HitCollection {
-    pub fn hit_any(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        self.0.iter().find_map(|obj| obj.hit(ray, t_min, t_max))
+    pub fn hit_any(&self, ray: &Ray, interval: &Interval) -> Option<HitRecord> {
+        let mut closest_so_far = interval.t_max;
+        let mut hit_record = None;
+        for obj in self.0.iter() {
+            if let Some(hit) = obj.hit(
+                ray,
+                &Interval {
+                    t_min: interval.t_min,
+                    t_max: closest_so_far,
+                },
+            ) {
+                hit_record = Some(hit);
+                closest_so_far = hit.t;
+            }
+        }
+        hit_record
     }
 }
 
 fn main() -> io::Result<()> {
-    // Image
-    let img_height: u32 = 1.0_f32.max(IMG_WIDTH as f32 / RATIO) as u32;
-
-    // Camera
-    let focal_length: f32 = 1.0;
-    let viewport_height: f32 = 2.0;
-    let viewport_width: f32 = viewport_height * (IMG_WIDTH as f32 / img_height as f32);
-    let camera_center = Vec3::ZERO;
-
-    // Define the vectors across the horizontal and down the vertical viewport edges
-    let viewport_u = Vec3::new(viewport_width, 0.0, 0.0);
-    let viewport_v = Vec3::new(0.0, -viewport_height, 0.0);
-
-    // Calculate horizontal and vertical delta vectors from pixel to pixel
-    let pixel_delta_u = viewport_u / IMG_WIDTH as f32;
-    let pixel_delta_v = viewport_v / img_height as f32;
-
-    // Calculate the location of the upper left pixel.
-    let viewport_upper_left =
-        camera_center - Vec3::new(0.0, 0.0, focal_length) - viewport_u / 2.0 - viewport_v / 2.0;
-    let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
-    // dbg!(viewport_upper_left);
-
-    // Open device
-    let f = File::create("image.ppm")?;
-    let mut writer = BufWriter::new(f);
-    write!(&mut writer, "P3\n{IMG_WIDTH} {img_height}\n255\n")?;
-
     // World
     let mut world = HitCollection(Vec::new());
     world
         .0
         .push(Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5)));
     world
-        .0
-        .push(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
+    .0
+    .push(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
 
-    // Render
-    for j in 0..img_height {
-        println!("Scanlines remaining: {:?}", (img_height - j));
-        for i in 0..IMG_WIDTH {
-            let pixel_center =
-                pixel00_loc + (i as f32 * pixel_delta_u) + (j as f32 * pixel_delta_v);
-            let ray_dir = pixel_center - camera_center;
-            let ray = Ray::new(camera_center, ray_dir);
-            let color = ray_color(&ray, &world);
-            write_color(&mut writer, &color)?;
-        }
-    }
-    println!("Complete.");
+    let camera = Camera::new(Vec3::ZERO, RATIO, IMG_WIDTH);
+    camera.render(&world)?;
     Ok(())
 }
 
-fn write_color(writer: &mut BufWriter<File>, color: &Vec3) -> io::Result<()> {
-    let n_color = *color * 255.999;
-    write!(writer, "{} {} {}\n", n_color.x, n_color.y, n_color.z)?;
-    Ok(())
-}
+
