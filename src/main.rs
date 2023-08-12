@@ -27,7 +27,12 @@ pub struct HitRecord {
 }
 impl HitRecord {
     pub fn new(point: Vec3, normal: Vec3, t: f32, front_face: bool) -> Self {
-        HitRecord { point, normal, t, front_face}
+        HitRecord {
+            point,
+            normal,
+            t,
+            front_face,
+        }
     }
     pub fn from_hit(obj_center: Vec3, ray: &Ray, t: f32) -> Self {
         let point = ray.at(t);
@@ -60,7 +65,7 @@ impl Hit for Sphere {
         let a = ray.dir.length_squared();
         let half_b = ray.dir.dot(oc);
         let c = oc.dot(oc) - self.radius.powi(2);
-    
+
         let discriminant = half_b.powi(2) - a * c;
         if discriminant < 0.0 {
             return None;
@@ -80,20 +85,22 @@ impl Hit for Sphere {
     }
 }
 
-pub fn ray_color(ray: &Ray) -> Vec3 {
-    let sphere = Sphere::new(Vec3 { x: 0.0, y: 0.0, z: -1.0 }, 0.5);
-    match sphere.hit(ray, 0.0, f32::MAX) {
-        Some(rec) => {
-            0.5*(rec.normal + 1.0)
-        }
+pub fn ray_color(ray: &Ray, world: &HitCollection) -> Vec3 {
+    match world.hit_any(ray, 0.0, f32::MAX) {
+        Some(rec) => 0.5 * (rec.normal + 1.0),
         None => {
             let unit_direction = ray.dir.normalize();
-            // dbg!(unit_direction);
             let a = 0.5 * (unit_direction.y + 1.0);
             Vec3::ONE.lerp(Vec3::new(0.5, 0.7, 1.0), a)
         }
     }
+}
 
+pub struct HitCollection(Vec<Box<dyn Hit>>);
+impl HitCollection {
+    pub fn hit_any(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        self.0.iter().find_map(|obj| obj.hit(ray, t_min, t_max))
+    }
 }
 
 fn main() -> io::Result<()> {
@@ -125,6 +132,15 @@ fn main() -> io::Result<()> {
     let mut writer = BufWriter::new(f);
     write!(&mut writer, "P3\n{IMG_WIDTH} {img_height}\n255\n")?;
 
+    // World
+    let mut world = HitCollection(Vec::new());
+    world
+        .0
+        .push(Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5)));
+    world
+        .0
+        .push(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
+
     // Render
     for j in 0..img_height {
         println!("Scanlines remaining: {:?}", (img_height - j));
@@ -133,7 +149,7 @@ fn main() -> io::Result<()> {
                 pixel00_loc + (i as f32 * pixel_delta_u) + (j as f32 * pixel_delta_v);
             let ray_dir = pixel_center - camera_center;
             let ray = Ray::new(camera_center, ray_dir);
-            let color = ray_color(&ray);
+            let color = ray_color(&ray, &world);
             write_color(&mut writer, &color)?;
         }
     }
