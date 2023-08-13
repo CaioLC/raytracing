@@ -1,23 +1,30 @@
-use std::{fs::File, io::BufWriter};
-use std::io::prelude::*;
 use std::io;
+use std::io::prelude::*;
+use std::{fs::File, io::BufWriter};
 
 use glam::Vec3;
+use rand::{random, thread_rng, Rng};
 
-use crate::{HitCollection, Ray, Interval};
+use crate::{HitCollection, Interval, Ray};
 
 pub struct Camera {
-    aspect_ratio: f32,
     image_width: u32,
     image_height: u32,
     pixel00_loc: Vec3,
     pixel_delta_u: Vec3,
     pixel_delta_v: Vec3,
     center: Vec3,
+    samples_per_pixel: u32,
+    max_depth: u32,
 }
 
 impl Camera {
-    pub fn new(position: Vec3, aspect_ratio: f32, image_width: u32) -> Self {
+    pub fn new(
+        position: Vec3,
+        aspect_ratio: f32,
+        image_width: u32,
+        samples_per_pixel: u32,
+    ) -> Self {
         let center = position;
         // image in pixels
         let image_height: u32 = 1.0_f32.max(image_width as f32 / aspect_ratio) as u32;
@@ -41,13 +48,14 @@ impl Camera {
         let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
         Camera {
-            aspect_ratio,
             image_width,
             image_height,
             pixel00_loc,
             pixel_delta_u,
             pixel_delta_v,
-            center
+            center,
+            samples_per_pixel,
+            max_depth: 50,
         }
     }
 
@@ -55,17 +63,22 @@ impl Camera {
         // Open device
         let f = File::create("image.ppm")?;
         let mut writer = BufWriter::new(f);
-        write!(&mut writer, "P3\n{} {}\n255\n", self.image_width, self.image_height)?;
+        write!(
+            &mut writer,
+            "P3\n{} {}\n255\n",
+            self.image_width, self.image_height
+        )?;
 
         // Render
         for j in 0..self.image_height {
             println!("Scanlines remaining: {:?}", (self.image_height - j));
             for i in 0..self.image_width {
-                let pixel_center =
-                    self.pixel00_loc + (i as f32 * self.pixel_delta_u) + (j as f32 * self.pixel_delta_v);
-                let ray_dir = pixel_center - self.center;
-                let ray = Ray::new(self.center, ray_dir);
-                let color = Camera::ray_color(&ray, &world);
+                let mut color = Vec3::ZERO;
+                for _ in 0..self.samples_per_pixel {
+                    let ray = self.get_ray(i, j);
+                    color += self.ray_color(&ray, &world, 0);
+                }
+                color /= self.samples_per_pixel as f32;
                 Camera::write_color(&mut writer, &color)?;
             }
         }
@@ -73,26 +86,85 @@ impl Camera {
         Ok(())
     }
 
-    fn ray_color(ray: &Ray, world: &HitCollection) -> Vec3 {
-        match world.hit_any(
-            ray,
-            &Interval {
-                t_min: 0.0,
-                t_max: f32::INFINITY,
-            },
-        ) {
-            Some(rec) => 0.5 * (rec.normal + 1.0),
-            None => {
-                let unit_direction = ray.dir.normalize();
-                let a = 0.5 * (unit_direction.y + 1.0);
-                Vec3::ONE.lerp(Vec3::new(0.5, 0.7, 1.0), a)
+    fn get_ray(&self, i: u32, j: u32) -> Ray {
+        let pixel_center =
+            self.pixel00_loc + (i as f32 * self.pixel_delta_u) + (j as f32 * self.pixel_delta_v);
+        let pixel_sample = pixel_center + self.random_sample();
+        let ray_dir = pixel_sample - self.center;
+        let ray = Ray::new(self.center, ray_dir);
+        ray
+    }
+
+    fn ray_color(&self, ray: &Ray, world: &HitCollection, max_depth: u32) -> Vec3 {
+        if max_depth < self.max_depth {
+            match world.hit_any(
+                ray,
+                &Interval {
+                    t_min: 0.0001,
+                    t_max: f32::INFINITY,
+                },
+            ) {
+                Some(rec) => {
+                    // let new_dir = random_on_hemisphere(rec.normal); // uniform
+                    let new_dir = rec.normal + random_unit_vec(); // lambertian dist
+                    let bounce = self.ray_color(&Ray::new(rec.point, new_dir), world, max_depth+1);
+                    return 0.5 * bounce;
+                },
+                None => {
+                    let unit_direction = ray.dir.normalize();
+                    let a = 0.5 * (unit_direction.y + 1.0);
+                    return Vec3::ONE.lerp(Vec3::new(0.5, 0.7, 1.0), a);
+                }
             }
         }
+        Vec3::ZERO
     }
 
     fn write_color(writer: &mut BufWriter<File>, color: &Vec3) -> io::Result<()> {
-        let n_color = *color * 255.999;
-        write!(writer, "{} {} {}\n", n_color.x, n_color.y, n_color.z)?;
+        let mut gamma_color = linear_to_gamma(&color);
+        let intensity = Interval { t_min: 0.0, t_max: 0.9999};
+        gamma_color.x = intensity.clamp(gamma_color.x);
+        gamma_color.y = intensity.clamp(gamma_color.y);
+        gamma_color.z = intensity.clamp(gamma_color.z);
+        gamma_color *=  256.0;
+
+        write!(writer, "{} {} {}\n", gamma_color.x, gamma_color.y, gamma_color.z)?;
         Ok(())
     }
+
+    fn random_sample(&self) -> Vec3 {
+        let x = -0.5 + random::<f32>();
+        let y = -0.5 + random::<f32>();
+        Vec3 {
+            x: x * self.pixel_delta_u.x,
+            y: y * self.pixel_delta_v.y,
+            z: 0.0,
+        }
+    }
+}
+
+fn linear_to_gamma(n_color: &Vec3) -> Vec3 {
+    Vec3 { x: n_color.x.sqrt(), y: n_color.y.sqrt(), z: n_color.z.sqrt() }
+}
+
+fn random_on_hemisphere(normal: Vec3) -> Vec3 {
+    let rvec = random_unit_vec();
+    if normal.dot(rvec) > 0.0 {
+        return rvec;
+    }
+    -rvec
+}
+
+pub fn random_unit_vec() -> Vec3 {
+    return Vec3::new(random(), random(), random()).normalize();
+}
+
+pub fn random_vec_rng(min: f32, max: f32) -> Vec3 {
+    let mut rng = thread_rng();
+    return Vec3::new(
+        rng.gen_range(min..max),
+        rng.gen_range(min..max),
+        rng.gen_range(min..max),
+    )
+    .normalize();
 }

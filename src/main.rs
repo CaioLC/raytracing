@@ -1,5 +1,6 @@
 use camera::Camera;
 use glam::Vec3;
+use rand::{random, thread_rng, Rng};
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{self, BufWriter};
@@ -8,7 +9,7 @@ mod camera;
 mod obj;
 use obj::Sphere;
 
-const IMG_WIDTH: u32 = 1600;
+const IMG_WIDTH: u32 = 400;
 const RATIO: f32 = 16.0 / 9.0;
 
 pub struct Ray {
@@ -72,6 +73,15 @@ impl Interval {
     pub fn surrounds(&self, t: f32) -> bool {
         self.t_min < t && t < self.t_max
     }
+    pub fn clamp(&self, t: f32) -> f32 {
+        if t > self.t_max {
+            return self.t_max;
+        }
+        if t < self.t_min {
+            return self.t_min;
+        }
+        t
+    }
 }
 impl Default for Interval {
     fn default() -> Self {
@@ -114,12 +124,11 @@ fn main() -> io::Result<()> {
         .0
         .push(Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5)));
     world
-    .0
-    .push(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
+        .0
+        .push(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
 
-    let camera = Camera::new(Vec3::ZERO, RATIO, IMG_WIDTH);
+    let camera = Camera::new(Vec3::ZERO, RATIO, IMG_WIDTH, 100);
     camera.render(&world)?;
     Ok(())
 }
-
 

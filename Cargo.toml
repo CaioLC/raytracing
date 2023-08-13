@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 glam = {version = "0.24.1", features = ["bytemuck", "serde"]}
+rand = "0.8.5"
