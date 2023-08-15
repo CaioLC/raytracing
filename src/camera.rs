@@ -5,7 +5,22 @@ use std::{fs::File, io::BufWriter};
 use glam::Vec3;
 use rand::{random, thread_rng, Rng};
 
-use crate::{HitCollection, Interval, Ray};
+use crate::obj::HitCollection;
+use crate::utils::{Interval, random_unit_vec};
+
+pub struct Ray {
+    pub orig: Vec3,
+    pub dir: Vec3,
+}
+impl Ray {
+    pub fn new(orig: Vec3, dir: Vec3) -> Self {
+        Ray { orig, dir }
+    }
+    pub fn at(&self, t: f32) -> Vec3 {
+        self.orig + t * self.dir
+    }
+}
+
 
 pub struct Camera {
     image_width: u32,
@@ -59,7 +74,7 @@ impl Camera {
         }
     }
 
-    pub fn render(&self, world: &HitCollection) -> io::Result<()> {
+    pub fn render(&self, world: HitCollection) -> io::Result<()> {
         // Open device
         let f = File::create("image.ppm")?;
         let mut writer = BufWriter::new(f);
@@ -145,26 +160,4 @@ impl Camera {
 
 fn linear_to_gamma(n_color: &Vec3) -> Vec3 {
     Vec3 { x: n_color.x.sqrt(), y: n_color.y.sqrt(), z: n_color.z.sqrt() }
-}
-
-fn random_on_hemisphere(normal: Vec3) -> Vec3 {
-    let rvec = random_unit_vec();
-    if normal.dot(rvec) > 0.0 {
-        return rvec;
-    }
-    -rvec
-}
-
-pub fn random_unit_vec() -> Vec3 {
-    return Vec3::new(random(), random(), random()).normalize();
-}
-
-pub fn random_vec_rng(min: f32, max: f32) -> Vec3 {
-    let mut rng = thread_rng();
-    return Vec3::new(
-        rng.gen_range(min..max),
-        rng.gen_range(min..max),
-        rng.gen_range(min..max),
-    )
-    .normalize();
 }
