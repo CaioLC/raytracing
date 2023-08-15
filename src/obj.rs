@@ -1,5 +1,6 @@
 use crate::camera::Ray;
-use crate::utils::{Interval, random_unit_vec};
+use crate::materials::Material;
+use crate::utils::Interval;
 use glam::Vec3;
 
 #[derive(Copy, Clone)]
@@ -47,20 +48,6 @@ impl HitCollection {
     }
 }
 
-pub trait Material {
-    fn reflect(&self, normal: Vec3) -> Vec3;
-}
-
-struct Uniform;
-impl Material for Uniform {
-    fn reflect(&self, normal: Vec3) -> Vec3 {
-        let rvec = random_unit_vec();
-        if normal.dot(rvec) > 0.0 {
-            return rvec;
-        }
-        -rvec
-    }
-}
 
 
 pub struct Sphere<'a> {
@@ -102,7 +89,7 @@ impl<'a> Hit for Sphere<'a> {
         match (interval.contains(root1), interval.contains(root2)) {
             (true, _) => Some(self.to_hit_record(ray, root1)),
             (false, true) =>Some(self.to_hit_record(ray, root2)),
-            (false, false) => None
+            (false, false) => None,
         }
     }
 }

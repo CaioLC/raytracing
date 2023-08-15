@@ -3,10 +3,10 @@ use std::io::prelude::*;
 use std::{fs::File, io::BufWriter};
 
 use glam::Vec3;
-use rand::{random, thread_rng, Rng};
+use rand::random;
 
 use crate::obj::HitCollection;
-use crate::utils::{Interval, random_unit_vec};
+use crate::utils::Interval;
 
 pub struct Ray {
     pub orig: Vec3,
@@ -120,10 +120,9 @@ impl Camera {
                 },
             ) {
                 Some(rec) => {
-                    // let new_dir = random_on_hemisphere(rec.normal); // uniform
-                    let new_dir = rec.normal + random_unit_vec(); // lambertian dist
+                    let new_dir = rec.material.reflect(rec.normal);
                     let bounce = self.ray_color(&Ray::new(rec.point, new_dir), world, max_depth+1);
-                    return 0.5 * bounce;
+                    return 0.2 * bounce;
                 },
                 None => {
                     let unit_direction = ray.dir.normalize();
