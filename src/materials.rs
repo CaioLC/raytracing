@@ -40,7 +40,7 @@ pub struct Metal {
 }
 impl Material for Metal {
     fn scatter(&self, ray_in: &Ray, normal: Vec3) -> (Vec3, Vec3) {
-        let reflected = ray_in.dir - 2.0*normal.dot(ray_in.dir);
+        let reflected = ray_in.dir - 2.0*normal.dot(ray_in.dir)*normal;
         (reflected, self.albedo)
     }
 }
