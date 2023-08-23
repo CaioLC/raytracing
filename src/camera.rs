@@ -115,14 +115,14 @@ impl Camera {
             match world.hit_any(
                 ray,
                 &Interval {
-                    t_min: 0.0001,
+                    t_min: 0.001,
                     t_max: f32::INFINITY,
                 },
             ) {
                 Some(rec) => {
-                    let new_dir = rec.material.reflect(rec.normal);
-                    let bounce = self.ray_color(&Ray::new(rec.point, new_dir), world, max_depth+1);
-                    return 0.2 * bounce;
+                    let (ray_scattered, reflectance) = rec.material.scatter(ray, rec.local_normal);
+                    let bounce = self.ray_color(&Ray::new(rec.point, ray_scattered), world, max_depth+1);
+                    return reflectance * bounce;
                 },
                 None => {
                     let unit_direction = ray.dir.normalize();

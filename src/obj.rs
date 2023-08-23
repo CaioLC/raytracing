@@ -41,8 +41,8 @@ impl<'a> HitRecord<'a> {
     }
 }
 
-pub struct HitCollection(pub Vec<Box<dyn Hit>>);
-impl HitCollection {
+pub struct HitCollection<'a>(pub Vec<Box<dyn Hit + 'a>>);
+impl<'a> HitCollection<'a> {
     pub fn hit_any(&self, ray: &Ray, interval: &Interval) -> Option<HitRecord> {
         let mut closest_so_far = interval.t_max;
         let mut hit_record = None;
@@ -67,7 +67,7 @@ impl HitCollection {
 pub struct Sphere<'a> {
     center: Vec3,
     radius: f32,
-    material: &'a dyn Material
+    material: &'a (dyn Material + 'a)
 }
 impl<'a> Sphere<'a> {
     pub fn new(center: Vec3, radius: f32, material: &'a dyn Material) -> Self {
