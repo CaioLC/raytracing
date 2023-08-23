@@ -3,28 +3,42 @@ use crate::materials::Material;
 use crate::utils::Interval;
 use glam::Vec3;
 
+pub trait Hit {
+    fn hit(&self, ray: &Ray, interval: &Interval) -> Option<HitRecord>;
+    fn to_hit_record(&self, ray: &Ray, root: f32) -> HitRecord;
+}
+
 #[derive(Copy, Clone)]
 pub struct HitRecord<'a> {
     pub point: Vec3,
-    pub normal: Vec3,
+    pub local_normal: Vec3, // local means always opposite to ray.
     pub t: f32,
     pub front_face: bool,
     pub material: &'a dyn Material,
 }
 
 impl<'a> HitRecord<'a> {
-    pub fn new(point: Vec3, normal: Vec3, t: f32, front_face: bool, material: &'a dyn Material) -> Self {
+    pub fn new(point: Vec3, local_normal: Vec3, t: f32, front_face: bool, material: &'a dyn Material) -> Self {
         HitRecord {
             point,
-            normal,
+            local_normal,
             t,
             front_face,
             material,
         }
     }
-}
-pub trait Hit {
-    fn hit(&self, ray: &Ray, interval: &Interval) -> Option<HitRecord>;
+    
+    /// from a ray and a normal that always points outwards, set if ray comes from
+    /// the front (front_face: True | False) and also return the local normal (always
+    /// in the oposite direction of the ray)
+    pub fn set_face_normal(ray: &Ray, outward_normal: Vec3) -> (bool, Vec3) {
+        let inside = ray.dir.dot(outward_normal) > 0.0;
+        match inside {
+            true => (false, -outward_normal),
+            false => (true, outward_normal)
+        }
+
+    }
 }
 
 pub struct HitCollection(pub Vec<Box<dyn Hit>>);
@@ -59,16 +73,6 @@ impl<'a> Sphere<'a> {
     pub fn new(center: Vec3, radius: f32, material: &'a dyn Material) -> Self {
         Sphere { center, radius, material }
     }
-    fn to_hit_record(&self, ray: &Ray, t: f32) -> HitRecord {
-        let point = ray.at(t);
-        let mut normal = (point - self.center).normalize(); // this is always outward normal
-        let mut front_face = true;
-        if normal.dot(ray.dir) > 0.0 {
-            normal *= -1.0; // if normal points in the same direction of normal, then invert normal
-            front_face = false;
-        }
-        HitRecord::new(point, normal, t, front_face, self.material)
-    }
 }
 impl<'a> Hit for Sphere<'a> {
     fn hit(&self, ray: &Ray, interval: &Interval) -> Option<HitRecord> {
@@ -91,5 +95,12 @@ impl<'a> Hit for Sphere<'a> {
             (false, true) =>Some(self.to_hit_record(ray, root2)),
             (false, false) => None,
         }
+    }
+
+    fn to_hit_record(&self, ray: &Ray, t: f32) -> HitRecord {
+        let point = ray.at(t);
+        let normal = (point - self.center).normalize(); // this is always outward normal
+        let (front_face, local_normal) = HitRecord::set_face_normal(ray, normal);
+        HitRecord::new(point, local_normal, t, front_face, self.material)
     }
 }
