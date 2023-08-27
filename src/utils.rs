@@ -42,7 +42,12 @@ impl Default for Interval {
 }
 
 pub fn random_unit_vec() -> Vec3 {
-    random_vec_rng(-1.0, 1.0).normalize()
+    loop {
+        let vec = random_vec_rng(-1.0, 1.0);
+        if vec.length_squared() <= 1.0 {
+            return vec
+        }
+    }
 }
 
 pub fn random_vec_rng(min: f32, max: f32) -> Vec3 {

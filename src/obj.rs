@@ -99,7 +99,7 @@ impl<'a> Hit for Sphere<'a> {
 
     fn to_hit_record(&self, ray: &Ray, t: f32) -> HitRecord {
         let point = ray.at(t);
-        let normal = (point - self.center).normalize(); // this is always outward normal
+        let normal = (point - self.center) / self.radius; // this is always outward normal
         let (front_face, local_normal) = HitRecord::set_face_normal(ray, normal);
         HitRecord::new(point, local_normal, t, front_face, self.material)
     }
