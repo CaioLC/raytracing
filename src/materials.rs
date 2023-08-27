@@ -59,22 +59,25 @@ impl Material for Metal {
 }
 
 pub struct Dielectric {
-    pub albedo: Vec3,
     pub index_of_refraction: f32
 }
-impl Dielectric {
-    fn refract(&self, unit_dir: Vec3, normal: Vec3) -> Vec3 {
-        let cos_theta = 1.0_f32.min(-unit_dir.dot(normal));
-        let r_out_perp = self.index_of_refraction * (unit_dir * cos_theta*normal);
-        let r_out_parallel = -(1.0 - r_out_perp.length_squared()).abs().sqrt() * normal;
-        r_out_parallel + r_out_perp
-    }
+fn refract(unit_dir: Vec3, normal: Vec3, refraction_ratio: f32) -> Vec3 {
+    let cos_theta = 1.0_f32.min(-unit_dir.dot(normal));
+    let r_out_perp = refraction_ratio * (unit_dir * cos_theta*normal);
+    let r_out_parallel = -(1.0 - r_out_perp.length_squared()).abs().sqrt() * normal;
+    r_out_parallel + r_out_perp
 }
 impl Material for Dielectric {
     fn scatter(&self, ray_in: &Ray, hit: HitRecord) -> Ray {
-        todo!()
+        let refraction_ratio = match hit.front_face {
+            true => 1.0 / self.index_of_refraction,
+            false => self.index_of_refraction
+        };
+        let unit_direction = ray_in.dir.normalize();
+        let refracted = refract(unit_direction, hit.local_normal, refraction_ratio);
+        Ray::new(hit.point, refracted)
     }
     fn attenuation(&self) -> Vec3 {
-        self.albedo
+        Vec3::ONE
     }
 }

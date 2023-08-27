@@ -8,7 +8,7 @@ mod utils;
 mod materials;
 use obj::{Sphere, HitCollection};
 // use materials::{LAMBERTIAN, UNIFORM};
-use materials::{Lambertian, Metal};
+use materials::{Lambertian, Metal, Dielectric};
 
 const IMG_WIDTH: u32 = 400;
 const RATIO: f32 = 16.0 / 9.0;
@@ -18,8 +18,8 @@ const RATIO: f32 = 16.0 / 9.0;
 fn main() -> io::Result<()> {
     // Materials
     let material_ground = Lambertian{albedo: Vec3 { x: 0.8, y: 0.8, z: 0.0 }};
-    let material_center = Lambertian{albedo: Vec3 { x: 0.7, y: 0.3, z: 0.3 }};
-    let material_left = Metal{albedo: Vec3 { x: 0.8, y: 0.8, z: 0.8 }, fuzz: 0.3};
+    let material_center = Dielectric{index_of_refraction: 1.5};
+    let material_left = Dielectric{index_of_refraction: 1.5};
     let material_right = Metal{albedo: Vec3 { x: 0.8, y: 0.6, z: 0.2 }, fuzz: 1.0};
 
     // World
