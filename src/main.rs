@@ -19,8 +19,8 @@ fn main() -> io::Result<()> {
     // Materials
     let material_ground = Lambertian{albedo: Vec3 { x: 0.8, y: 0.8, z: 0.0 }};
     let material_center = Lambertian{albedo: Vec3 { x: 0.7, y: 0.3, z: 0.3 }};
-    let material_left = Metal{albedo: Vec3 { x: 0.8, y: 0.8, z: 0.8 }};
-    let material_right = Metal{albedo: Vec3 { x: 0.8, y: 0.6, z: 0.2 }};
+    let material_left = Metal{albedo: Vec3 { x: 0.8, y: 0.8, z: 0.8 }, fuzz: 0.3};
+    let material_right = Metal{albedo: Vec3 { x: 0.8, y: 0.6, z: 0.2 }, fuzz: 1.0};
 
     // World
     let sphere0 = Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, &material_ground);

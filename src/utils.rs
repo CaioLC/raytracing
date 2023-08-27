@@ -42,7 +42,7 @@ impl Default for Interval {
 }
 
 pub fn random_unit_vec() -> Vec3 {
-    return Vec3::new(random(), random(), random()).normalize();
+    random_vec_rng(-1.0, 1.0).normalize()
 }
 
 pub fn random_vec_rng(min: f32, max: f32) -> Vec3 {

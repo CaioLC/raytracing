@@ -120,9 +120,9 @@ impl Camera {
                 },
             ) {
                 Some(rec) => {
-                    let (ray_scattered, reflectance) = rec.material.scatter(ray, rec.local_normal);
-                    let bounce = self.ray_color(&Ray::new(rec.point, ray_scattered), world, max_depth+1);
-                    return reflectance * bounce;
+                    let ray_scattered = rec.material.scatter(ray, rec);
+                    let bounce = self.ray_color(&ray_scattered, world, max_depth+1);
+                    return rec.material.attenuation() * bounce;
                 },
                 None => {
                     let unit_direction = ray.dir.normalize();
