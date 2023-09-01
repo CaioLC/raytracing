@@ -1,5 +1,5 @@
 use glam::Vec3;
-use rand::random;
+use rand::{thread_rng, Rng, random};
 
 use crate::{utils::random_unit_vec, camera::Ray, obj::HitRecord};
 
@@ -71,11 +71,12 @@ impl Material for Dielectric {
         };
         let unit_dir = ray_in.dir.normalize();
         let cos_theta = 1.0_f32.min(-unit_dir.dot(hit.local_normal));
-        let sin_theta = (1.0-cos_theta.powi(2)).sqrt();
-
-        let must_reflect = refraction_ratio * sin_theta > 1.0;
+        
+        // let sin_theta = (1.0-cos_theta.powi(2)).sqrt();
+        // let must_reflect = refraction_ratio * sin_theta > 1.0; # this creates something weird
         let new_dir;
-        if must_reflect || reflectance(cos_theta, refraction_ratio) > random() {
+        
+        if reflectance(cos_theta, refraction_ratio) > random() {
             new_dir = reflect(unit_dir, hit.local_normal);
         } else {
             new_dir = refract(unit_dir, hit.local_normal, refraction_ratio);
@@ -100,7 +101,6 @@ fn refract(unit_vec: Vec3, normal: Vec3, refraction_ratio: f32) -> Vec3 {
 
 fn reflectance(cosine: f32, ref_idx: f32) -> f32 {
     // Schlick`s approximation for reflectance.
-    let mut r0 = (1.0-ref_idx) / (1.0 + ref_idx);
-    r0 = r0.powi(2);
-    r0 + (1.0-r0)* (1.0 - cosine).powi(5)
+    let r0 = ((1.0-ref_idx) / (1.0 + ref_idx)).powi(2);
+    r0 + (1.0-r0) * (1.0 - cosine).powi(5)
 }

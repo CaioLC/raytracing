@@ -19,13 +19,13 @@ fn main() -> io::Result<()> {
     // Materials
     let material_ground = Lambertian{albedo: Vec3 { x: 0.8, y: 0.8, z: 0.0 }};
     let material_center = Lambertian{albedo: Vec3::new(0.1, 0.2, 0.5)};
-    let material_left = Dielectric{index_of_refraction: 1.5};
+    let material_left = Dielectric{index_of_refraction: 1.3};
     let material_right = Metal{albedo: Vec3 { x: 0.8, y: 0.6, z: 0.2 }, fuzz: 0.0};
 
     // World
     let sphere0 = Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, &material_ground);
     let sphere1 = Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5, &material_center);
-    let sphere2 = Sphere::new(Vec3::new(-1.0, 0.0, -1.0), -0.4, &material_left);
+    let sphere2 = Sphere::new(Vec3::new(-1.0, 0.0, -1.0), -0.5, &material_left);
     let sphere3 = Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5, &material_right);
     let mut world = HitCollection(Vec::new());
     world
