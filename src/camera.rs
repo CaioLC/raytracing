@@ -23,12 +23,12 @@ impl Ray {
 
 
 pub struct Camera {
+    pub position: Vec3, // this is lookfrom
     image_width: u32,
     image_height: u32,
     pixel00_loc: Vec3,
     pixel_delta_u: Vec3,
     pixel_delta_v: Vec3,
-    center: Vec3,
     samples_per_pixel: u32,
     max_depth: u32,
 }
@@ -38,37 +38,45 @@ impl Camera {
         position: Vec3,
         aspect_ratio: f32,
         image_width: u32,
+        vfov: f32,
+        lookat: Vec3,
+        vup: Vec3,
         samples_per_pixel: u32,
     ) -> Self {
-        let center = position;
         // image in pixels
         let image_height: u32 = 1.0_f32.max(image_width as f32 / aspect_ratio) as u32;
 
         // define viewport
-        let focal_length: f32 = 1.0;
-        let viewport_height: f32 = 2.0;
+        let focal_length = (position - lookat).length();
+        let theta = vfov.to_radians();
+        let h = (theta*0.5).tan();
+        let viewport_height = 2.0 * h * focal_length;
         let viewport_width: f32 = viewport_height * (image_width as f32 / image_height as f32);
 
+        // calculate u,v,w unit basis vectors for the camera coordinate frame
+        let w = (position - lookat).normalize();
+        let u = vup.cross(w);
+        let v = w.cross(u);
+
         // calculate viewport horizontal and vertical vectors
-        let viewport_u = Vec3::new(viewport_width, 0.0, 0.0);
-        let viewport_v = Vec3::new(0.0, -viewport_height, 0.0);
+        let viewport_u = viewport_width * u; // Vector across viewport horizontal edge
+        let viewport_v = viewport_height * -v; // Vector down viewport vertical edge
 
         // calculate horizontal and vertical delta pixel
         let pixel_delta_u = viewport_u / image_width as f32;
         let pixel_delta_v = viewport_v / image_height as f32;
 
         // calculate upper left pixel
-        let viewport_upper_left =
-            center - Vec3::new(0.0, 0.0, focal_length) - viewport_u / 2.0 - viewport_v / 2.0;
+        let viewport_upper_left = position - (focal_length * w) - viewport_u/2.0 - viewport_v/2.0;
         let pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
         Camera {
+            position,
             image_width,
             image_height,
             pixel00_loc,
             pixel_delta_u,
             pixel_delta_v,
-            center,
             samples_per_pixel,
             max_depth: 50,
         }
@@ -105,8 +113,8 @@ impl Camera {
         let pixel_center =
             self.pixel00_loc + (i as f32 * self.pixel_delta_u) + (j as f32 * self.pixel_delta_v);
         let pixel_sample = pixel_center + self.random_sample();
-        let ray_dir = pixel_sample - self.center;
-        let ray = Ray::new(self.center, ray_dir);
+        let ray_dir = pixel_sample - self.position;
+        let ray = Ray::new(self.position, ray_dir);
         ray
     }
 
