@@ -72,11 +72,11 @@ impl Material for Dielectric {
         let unit_dir = ray_in.dir.normalize();
         let cos_theta = 1.0_f32.min(-unit_dir.dot(hit.local_normal));
         
-        // let sin_theta = (1.0-cos_theta.powi(2)).sqrt();
-        // let must_reflect = refraction_ratio * sin_theta > 1.0; # this creates something weird
+        let sin_theta = (1.0-cos_theta.powi(2)).sqrt();
+        let must_reflect = refraction_ratio * sin_theta > 1.0; // this creates something weird
         let new_dir;
         
-        if reflectance(cos_theta, refraction_ratio) > random() {
+        if must_reflect || reflectance(cos_theta, refraction_ratio) > random() {
             new_dir = reflect(unit_dir, hit.local_normal);
         } else {
             new_dir = refract(unit_dir, hit.local_normal, refraction_ratio);

@@ -48,11 +48,13 @@ fn main() -> io::Result<()> {
     let camera = Camera::new(
         Vec3::new(-2.0, 2.0, 1.0),
         RATIO,
-        400,
+        800,
         20.0,
         Vec3::new(0.0, 0.0, -1.0),
         Vec3::Y,
         50,
+        10.0,
+        0.7,
     );
     camera.render(world)?;
     Ok(())

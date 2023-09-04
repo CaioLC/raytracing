@@ -59,3 +59,13 @@ pub fn random_vec_rng(min: f32, max: f32) -> Vec3 {
     )
     .normalize();
 }
+
+pub fn random_in_unit_disk() -> Vec3 {
+    let mut rng = thread_rng();
+    loop {
+        let vec = Vec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
+        if vec.length_squared() < 1.0 {
+            return vec
+        }
+    }
+}
