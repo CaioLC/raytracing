@@ -94,7 +94,7 @@ impl Camera {
         }
     }
 
-    pub fn render(&self, world: HitCollection) -> io::Result<()> {
+    pub fn render(&self, world: &HitCollection) -> io::Result<()> {
         // Open device
         let f = File::create("image.ppm")?;
         let mut writer = BufWriter::new(f);
@@ -111,7 +111,7 @@ impl Camera {
                 let mut color = Vec3::ZERO;
                 for _ in 0..self.samples_per_pixel {
                     let ray = self.get_ray(i, j);
-                    color += self.ray_color(&ray, &world, 0);
+                    color += self.ray_color(&ray, world, 0);
                 }
                 color /= self.samples_per_pixel as f32;
                 Camera::write_color(&mut writer, &color)?;
