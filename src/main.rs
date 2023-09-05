@@ -80,9 +80,9 @@ fn main() -> io::Result<()> {
         20.0,
         Vec3::ZERO,
         Vec3::Y,
-        500,
+        100,
         10.0,
-        0.6,
+        0.0,
     );
     camera.render(&world)?;
     // drop(world);
